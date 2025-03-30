@@ -22,6 +22,11 @@ const saveData = (data) => {
     fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
 };
 
+// ✅ Tambahkan rute dasar untuk memastikan layanan berjalan
+app.get('/', (req, res) => {
+    res.send('Service berjalan dengan baik!');
+});
+
 // ✅ **GET semua barang**
 app.get('/barang', (req, res) => {
     res.json(loadData());
