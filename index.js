@@ -1,72 +1,67 @@
 const express = require('express');
 const cors = require('cors');
-const fs = require('fs');
+const { Redis } = require('@upstash/redis');
+require('dotenv').config();
 
 const app = express();
 const PORT = 3000;
-const DATA_FILE = '/tmp/data.json';
+
+// Koneksi ke Vercel KV (Upstash Redis)
+const redis = new Redis({
+    url: process.env.VERCEL_KV_REDIS_URL,
+    token: process.env.VERCEL_KV_REDIS_TOKEN, // Jika ada token
+});
 
 app.use(cors());
 app.use(express.json());
 
-// Load data
-const loadData = () => {
-    if (fs.existsSync(DATA_FILE)) {
-        return JSON.parse(fs.readFileSync(DATA_FILE));
-    }
-    return [];
-};
-
-// Save data
-const saveData = (data) => {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
-};
-
-// ✅ Tambahkan rute dasar untuk memastikan layanan berjalan
+// ✅ Rute dasar untuk cek status
 app.get('/', (req, res) => {
-    res.send('Service berjalan dengan baik!');
+    res.send('Service berjalan dengan baik dengan Vercel KV!');
 });
 
 // ✅ **GET semua barang**
-app.get('/barang', (req, res) => {
-    res.json(loadData());
+app.get('/barang', async (req, res) => {
+    const items = await redis.get('barang') || []; // Ambil dari Redis
+    res.json(items);
 });
 
 // ✅ **POST tambah barang baru**
-app.post('/barang', (req, res) => {
-    const items = loadData();
-    const newItem = { id: Date.now().toString(), ...req.body }; // ID tetap string
+app.post('/barang', async (req, res) => {
+    const items = await redis.get('barang') || [];
+    const newItem = { id: Date.now().toString(), ...req.body };
+
     items.push(newItem);
-    saveData(items);
+    await redis.set('barang', items); // Simpan ke Redis
     res.json(newItem);
 });
 
 // ✅ **PUT update barang berdasarkan ID**
-app.put('/barang/:id', (req, res) => {
-    let items = loadData();
-    const id = req.params.id; // ID sebagai string
+app.put('/barang/:id', async (req, res) => {
+    let items = await redis.get('barang') || [];
+    const id = req.params.id;
     const index = items.findIndex(item => item.id === id);
 
     if (index === -1) {
         return res.status(404).json({ error: "Barang tidak ditemukan!" });
     }
 
-    items[index] = { ...items[index], ...req.body }; // Update data
-    saveData(items);
+    items[index] = { ...items[index], ...req.body };
+    await redis.set('barang', items); // Update Redis
     res.json(items[index]);
 });
 
 // ✅ **DELETE barang berdasarkan ID**
-app.delete('/barang/:id', (req, res) => {
-    let items = loadData();
-    const id = req.params.id; // ID sebagai string
+app.delete('/barang/:id', async (req, res) => {
+    let items = await redis.get('barang') || [];
+    const id = req.params.id;
     const newItems = items.filter(item => item.id !== id);
 
     if (newItems.length === items.length) {
         return res.status(404).json({ error: "Barang tidak ditemukan!" });
     }
 
-    saveData(newItems);
+    await redis.set('barang', newItems); // Simpan perubahan
     res.json({ message: 'Item deleted' });
 });
 
