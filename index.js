@@ -4,7 +4,7 @@ const fs = require('fs');
 
 const app = express();
 const PORT = 3000;
-const DATA_FILE = 'data.json';
+const DATA_FILE = '/tmp/data.json';
 
 app.use(cors());
 app.use(express.json());
