@@ -1,71 +1,31 @@
-const express = require('express');
-const cors = require('cors');
-const { Redis } = require('@upstash/redis');
-require('dotenv').config();
+const Redis = require("ioredis");
 
-const app = express();
-const PORT = 3000;
+const redis = new Redis(process.env.REDIS_URL);
 
-// Koneksi ke Vercel KV (Upstash Redis)
-const redis = new Redis({
-    url: process.env.VERCEL_KV_REDIS_URL,
-    token: process.env.VERCEL_KV_REDIS_TOKEN, // Jika ada token
-});
+const handler = async (req, res) => {
+    res.setHeader("Access-Control-Allow-Origin", "*"); 
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-app.use(cors());
-app.use(express.json());
-
-// ✅ Rute dasar untuk cek status
-app.get('/', (req, res) => {
-    res.send('Service berjalan dengan baik dengan Vercel KV!');
-});
-
-// ✅ **GET semua barang**
-app.get('/barang', async (req, res) => {
-    const items = await redis.get('barang') || []; // Ambil dari Redis
-    res.json(items);
-});
-
-// ✅ **POST tambah barang baru**
-app.post('/barang', async (req, res) => {
-    const items = await redis.get('barang') || [];
-    const newItem = { id: Date.now().toString(), ...req.body };
-
-    items.push(newItem);
-    await redis.set('barang', items); // Simpan ke Redis
-    res.json(newItem);
-});
-
-// ✅ **PUT update barang berdasarkan ID**
-app.put('/barang/:id', async (req, res) => {
-    let items = await redis.get('barang') || [];
-    const id = req.params.id;
-    const index = items.findIndex(item => item.id === id);
-
-    if (index === -1) {
-        return res.status(404).json({ error: "Barang tidak ditemukan!" });
+    if (req.method === "OPTIONS") {
+        return res.status(200).end();
     }
 
-    items[index] = { ...items[index], ...req.body };
-    await redis.set('barang', items); // Update Redis
-    res.json(items[index]);
-});
+    if (req.method === "GET") {
+        const data = await redis.get("barang");
+        const barang = data ? JSON.parse(data) : [];
+        return res.status(200).json(barang);
+    } 
+    
+    if (req.method === "POST") {
+        const { id, nama, harga } = req.body;
+        const barang = { id, nama, harga };
 
-// ✅ **DELETE barang berdasarkan ID**
-app.delete('/barang/:id', async (req, res) => {
-    let items = await redis.get('barang') || [];
-    const id = req.params.id;
-    const newItems = items.filter(item => item.id !== id);
+        await redis.set("barang", JSON.stringify(barang), "EX", 3600);
+        return res.status(201).json({ message: "Barang berhasil disimpan!", barang });
+    } 
 
-    if (newItems.length === items.length) {
-        return res.status(404).json({ error: "Barang tidak ditemukan!" });
-    }
+    return res.status(405).json({ message: "Method not allowed" });
+};
 
-    await redis.set('barang', newItems); // Simpan perubahan
-    res.json({ message: 'Item deleted' });
-});
-
-// ✅ **Menjalankan server**
-app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-});
+module.exports = handler; // ⬅️ Gunakan `module.exports` untuk CommonJS
