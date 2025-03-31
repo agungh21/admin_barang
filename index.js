@@ -43,7 +43,7 @@ const handler = async (req, res) => {
             const newBarang = { id, nama, harga };
             barangList.push(newBarang);
 
-            await redis.set("barang", JSON.stringify(barangList), "EX", 3600);
+            await redis.set("barang", JSON.stringify(barangList));
             return res.status(201).json({ message: "Barang berhasil disimpan!", barang: newBarang });
         }
 
@@ -60,7 +60,7 @@ const handler = async (req, res) => {
             }
 
             barangList[index] = { id, nama, harga };
-            await redis.set("barang", JSON.stringify(barangList), "EX", 3600);
+            await redis.set("barang", JSON.stringify(barangList));
             return res.status(200).json({ message: "Barang berhasil diperbarui!", barang: barangList[index] });
         }
 
@@ -79,7 +79,7 @@ const handler = async (req, res) => {
                 return res.status(404).json({ message: "Barang tidak ditemukan!" });
             }
         
-            await redis.set("barang", JSON.stringify(newBarangList), "EX", 3600);
+            await redis.set("barang", JSON.stringify(newBarangList));
             return res.status(200).json({ message: "Barang berhasil dihapus!" });
         }        
 
