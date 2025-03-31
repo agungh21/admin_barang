@@ -66,10 +66,20 @@ const handler = async (req, res) => {
 
         // ✅ DELETE: Hapus barang berdasarkan ID
         if (req.method === "DELETE") {
-            const { id } = req.body;
-            barangList = barangList.filter(item => item.id !== id);
+            let { id } = req.body;
+            
+            if (!id) {
+                return res.status(400).json({ message: "ID harus disertakan untuk menghapus barang!" });
+            }
 
-            await redis.set("barang", JSON.stringify(barangList), "EX", 3600);
+            id = id.toString(); // Pastikan tipe data cocok
+            const newBarangList = barangList.filter(item => item.id.toString() !== id);
+
+            if (newBarangList.length === barangList.length) {
+                return res.status(404).json({ message: "Barang tidak ditemukan!" });
+            }
+
+            await redis.set("barang", JSON.stringify(newBarangList), "EX", 3600);
             return res.status(200).json({ message: "Barang berhasil dihapus!" });
         }
 
